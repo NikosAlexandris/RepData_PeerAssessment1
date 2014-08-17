@@ -1,0 +1,51 @@
+---
+title: "PA1_Supplementary_Code.Rmd"
+author: "Nikos Alexandris"
+date: "08/17/2014"
+output: html_document
+---
+
+
+### Omitting NAs
+
+```{r}
+activity.nonas <- na.omit(activity)
+summary(activity.nonas)
+```
+
+### Aggregating steps per day
+
+## Mean values
+
+Aggregate observations per day
+```{r}
+activity.aggregated <- aggregate ( activity$steps, by = list(activity$date), FUN = "mean")
+colnames(activity.aggregated) <- c ("Date", "Mean")
+summary(activity.aggregated)
+```
+
+
+Omitting NAs **wont** alter mean, median values!
+```{r Aggregation after omitting NAs, echo=FALSE}
+activity.nonas.aggregated <- aggregate ( activity.nonas$steps, by = list(activity.nonas$date), FUN = "mean")
+colnames(activity.nonas.aggregated) <- c ("Date", "Mean")
+summary(activity.nonas.aggregated)
+```
+
+
+## Alternative aggregation by using ddply() (Mean + Totals)
+
+```{r ddply()}
+require(plyr)
+activity.ddply <- ddply(activity.nonas, .(date), summarize, Total=sum(steps), Mean=mean(steps))
+summary(activity.ddply)
+```
+
+## Weekdays and Weekends
+
+Subset dataset to obtain weekends (i.e., Saturdays and Sundays) and weekdays (i.e., Mondays, Tuesdays, Wednesdays, Thursdays and Fridays).
+
+```{r}
+activity.filled.we <- activity.filled[activity.filled$Day %in% c('Saturday', 'Sunday'),]
+activity.filled.wd <- activity.filled[!activity.filled$Day %in% c('Saturday', 'Sunday'),]
+```

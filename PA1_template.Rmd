@@ -1,20 +1,191 @@
-# Reproducible Research: Peer Assessment 1
+---
+output:
+  html_document:
+    keep_md: yes
+    theme: cerulean
+---
 
+Reproducible Research (Peer Assessment 1)
+===========================================
 
-## Loading and preprocessing the data
+Author: Nikos Alexandris, August 2014
 
+## Loading the data
 
+Reading the csv data file
+
+```{r Load data, echo=TRUE}
+activity <- read.csv("~/archive/coursera/Reproducible_Research/Peer_Assessment_1/activity.csv", stringsAsFactors=FALSE)
+```  
+
+Checking class & structure of imported data
+
+```{r Class & Structure}
+class(activity)
+str(activity)
+```
+
+Summarising
+
+```{r Summarise}
+summary(activity)
+```
+
+Summarise data after *NAs omission*
+
+```{r}
+activity.nonas <- na.omit(activity)
+summary(activity.nonas)
+```
+
+* * *
 
 ## What is mean total number of steps taken per day?
 
+**1. Histogram of the total number of steps per day**
 
+Firstly, we derive the total steps per day
+
+```{r}
+activity.aggregated.totals <- aggregate(activity$steps, list (activity$date), FUN = "sum")
+colnames(activity.aggregated.totals) <- c ("Date", "Total")
+```
+
+
+Then, we may obtain the requested histogram via
+
+```{r}
+require(ggplot2)
+qplot(activity.aggregated.totals$Total)
+```
+
+**2. Mean and Median of the total number of steps per day**
+
+To derive descriptive parameters, we summarise the aggregated data,
+
+```{r}
+summary(activity.aggregated.totals)
+```
+
+The *mean* and *median* of the total number of steps per day, are **10766** and **10765** respectively as extracted from the ```summary()``` report shown above.
+
+
+* * *
 
 ## What is the average daily activity pattern?
 
+**1. Time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)**
 
+```{r}
+require(plyr)
+activity.nonas.intervals <- ddply (activity.nonas, .(interval), summarize, Total = sum (steps), Mean = mean (steps))
+plot ( activity.nonas.intervals$interval, activity.nonas.intervals$Mean, type = "l", xlab = "Intervals", ylab = "Average Steps per Interval")
+```
+
+**2. The 5-minute interval, on average across all the days in the dataset, which contains the maximum number of steps,** can be retrieved via
+
+```{r}
+interval.max.row <- which.max (activity.nonas.intervals$Mean)
+interval.max <- activity.nonas.intervals[interval.max.row, "interval"];
+```
+
+and is
+
+```{r}
+interval.max
+```
+
+A plot that depicts visually the above finding, can be obtained via the following instructions:
+
+```{r Max-Interval}
+plot ( activity.nonas.intervals$interval, activity.nonas.intervals$Mean, type = "l", xlab = "Intervals", ylab = "Average Steps per Interval", lwd=2, col = "gray")
+abline(v=activity.nonas.intervals$interval[interval.max.row], col="red", xlab = "104", lty = 3, lwd=3)
+axis(1, at=interval.max, col = "red", col.axis = "red")
+```
+
+
+* * *
 
 ## Imputing missing values
 
+**1. Total number of missing values in the dataset**, i.e. the total number of rows with NAs, is **2304** as retrieved by ```summary(activity$steps)```
 
+```{r, echo=FALSE}
+summary(activity$steps)
+```
+
+**2. Filling missing values in the dataset** | *Simple approach, source: <http://www.mail-archive.com/r-help@r-project.org/msg58289.html>*
+
+```{r}
+impute <- function (x, fun) {
+missing <- is.na(x)
+replace ( x, missing, fun (x[!missing]))
+}
+activity.filled <- ddply(activity, ~interval, transform, steps = impute(steps, mean))
+```
+
+3. **Histogram, mean and median of the total number of steps per day**
+
+As in *question 2*, we derive the total steps per day
+
+```{r}
+activity.filled.aggregated.totals <- aggregate(activity.filled$steps, list (activity.filled$date), FUN = "sum")
+colnames(activity.filled.aggregated.totals) <- c ("Date", "Total")
+```
+
+
+Then, we may obtain the requested histogram via
+
+```{r}
+require(ggplot2)
+qplot(activity.filled.aggregated.totals$Total)
+```
+
+Next, we derive the *mean* and *median* values of the total number of steps per day
+
+```{r}
+require(plyr)
+activity.filled.ddply <- ddply(activity.filled, .(date), summarize, Totals=sum(steps), Mean=mean(steps))
+summary(activity.filled.ddply)
+```
+From the ```summary()``` tables shown above, the requested values are identical and equal to **10766**.
+
+**Original vs. Filled-in Data**
+
+The *mean* value is identical to the one of the original data set. The *median* has been equalised to the *mean* and differs only slightly from the original one (i.e. now **10766** vs. **10765**).  The impact of imputing missing data on the estimates of the total daily number of steps, using a very simple (simplistic?) approach, is minimal as the distribution has not been altered strongly.  
+
+The effect of this simple fill-in approach, can be seen in a comparison box-plot of the *original* total number of steps per day (including missing observations) versus the *filled* values.
+
+First we combine the vectors of interest in a new data.frame,
+
+```{r}
+original.vs.filled <- cbind(activity.aggregated.totals, activity.filled.aggregated.totals$Total)
+colnames(original.vs.filled) <- c ("Date", "Original", "Filled")
+```
+
+and then we can box-plot them all in once step:
+```{r}
+boxplot(original.vs.filled[,-1], main = "Original vs. Filled", sub = "Total Number of Steps per Day", col = "green")
+```
+* * *
 
 ## Are there differences in activity patterns between weekdays and weekends?
+
+**1. New factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day**
+
+```{r}
+activity.filled$Day <- format ( as.POSIXct ( activity.filled$date), "%A" )
+activity.filled[!activity.filled$Day %in% c('Saturday', 'Sunday'),]$Day <- 'weekday'
+activity.filled[activity.filled$Day %in% c('Saturday', 'Sunday'),]$Day <- 'weekend'
+activity.filled$Day <-as.factor(activity.filled$Day)
+```
+
+**2. A panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis).**
+
+```{r}
+require(lattice)
+xyplot(steps ~ interval | Day, data=activity.filled, layout = c (1,2), panel = function(x, y, ...) {
+  panel.xyplot(x, y, type = "l")
+  panel.abline(h = mean(y), lty = 2, col = "red")
+})
+```
